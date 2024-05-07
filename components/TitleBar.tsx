@@ -17,13 +17,10 @@ const TitleBar = () => {
     }, [])
 
     return (
-        <div>
-            <div
-                data-tauri-drag-region
-                className='h-6 select-none flex justify-start fixed top-0 left-0 right-0 bg-zinc-600'
-            ></div>
-        </div>
+        <div
+            data-tauri-drag-region
+            className='h-6 select-none flex justify-start top-0 fixed left-0 right-0 bg-zinc-600 z-50'
+        ></div>
     )
 }
-
 export default TitleBar
