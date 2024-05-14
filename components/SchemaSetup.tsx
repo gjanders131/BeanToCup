@@ -1,11 +1,14 @@
-import { useState } from 'react'
+'use client'
+
+import { use, useEffect, useState } from 'react'
 import PopUp from './PopUp'
 import { invoke } from '@tauri-apps/api'
-import { schemaStore } from './Helpers/Store'
+import { schemaStore, workspaceStore } from './Helpers/Store'
 import { v4 as uuidv4 } from 'uuid'
 
 const SchemaSetup = () => {
     const useSchemaStore = schemaStore((state) => state)
+    const useWorkspaceStore = workspaceStore((state) => state)
 
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [dirCategoryKeys, setDirCategoryKeys] = useState<string[]>(
@@ -43,14 +46,50 @@ const SchemaSetup = () => {
     }
 
     const handleApplyChanges = () => {
-        let jsonCats = JSON.stringify(useSchemaStore.dir_categories)
-        console.log(jsonCats)
+        let categories = JSON.stringify({
+            directory: useSchemaStore.dir_categories,
+            asset: useSchemaStore.asset_categories,
+        })
+        // console.log(JSON.parse(jsonCats))
+        invoke('write_categories_into_workspace', {
+            workspace: useWorkspaceStore.path,
+            content: categories,
+        })
+            .then((res) => {
+                console.log(res)
+            })
+            .catch((error) => {
+                console.error(error)
+            })
+    }
+
+    const handleOpenPopUp = () => {
+        setIsOpen(true)
+
+        invoke<string>('get_workspace', {
+            workspacePath: useWorkspaceStore.path,
+        })
+            .then((res) => {
+                console.log(JSON.parse(res).categories.directory)
+                useSchemaStore.setDirCategories(
+                    JSON.parse(res).categories.directory
+                )
+                useSchemaStore.setAssetCategories(
+                    JSON.parse(res).categories.asset
+                )
+            })
+            .catch((error) => {
+                useSchemaStore.setDirCategories([''])
+                useSchemaStore.setAssetCategories([''])
+                console.error(error)
+            })
     }
 
     return (
         <>
+            <button onClick={handleOpenPopUp}>Setup Schema</button>
             <PopUp
-                isOpen={true}
+                isOpen={isOpen}
                 setIsOpen={setIsOpen}
             >
                 <div>

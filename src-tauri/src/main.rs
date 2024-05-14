@@ -2,8 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use rfd::{FileDialog, MessageDialog, MessageLevel};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::api::{self, dir::read_dir};
-use std::fs::{self};
+use std::fs;
 
 #[tauri::command]
 fn open_dir(base_path:String) -> Result<String, String> {
@@ -40,7 +42,7 @@ fn open_workspace() -> Result<String, String> {
   let file = FileDialog::new()
   .set_directory(api::path::document_dir().unwrap().as_path())
 
-  .add_filter("B2C Workspace", &[".b2cworkspace"])
+  // .add_filter("B2C Workspace", &[".b2cworkspace"])
   .set_title("Select a B2C Workspace")
   .pick_file();
 
@@ -91,9 +93,44 @@ fn validate_text(text:String) -> Result<String, String> {
   return Ok(text);
 }
 
-// fn write_into_workspace(workspace:String, content:String) -> Result<String, String> { 
+#[tauri::command]
+fn get_workspace(workspace_path: String) -> Result<String, String> {
+  let workspace = fs::read_to_string(workspace_path);
+  match workspace {
+    Ok(content) => return Ok(content),
+    Err(_) => return Err("Unable to read workspace".to_string())
+  };
+}
 
-// }
+fn process_json(json:String) -> Result<Value, serde_json::Error> {
+  let json_string = serde_json::from_str::<Value>(json.as_str())?;
+  return Ok(json_string);
+}
+
+#[tauri::command]
+fn write_categories_into_workspace(workspace:String, content:String) -> Result<String, String> {
+
+  let json_string = process_json(content);
+  let dirs = match json_string {
+    Ok(jstring) => jstring,
+    Err(err) => return Err(err.to_string())
+  };
+  
+  let workspace_content = fs::read_to_string(&workspace);
+  match workspace_content {
+    Ok(content) => {
+      let mut json_content = serde_json::from_str::<Value>(&content).expect("Unable to convert content to JSON");
+      json_content["categories"] = serde_json::to_value(&dirs).expect("Unable to write categories to JSON");
+      let update_workspace = fs::write(workspace, serde_json::to_string_pretty(&json_content).expect("Unable to write JSON to string"));
+      match update_workspace {
+        Ok(_) => return Ok("Success".to_string()),
+        Err(_) => return Err("Unable to write to workspace".to_string())
+      };
+    },
+    Err(err) => return Err(err.to_string())
+  };
+}
+
 
 #[tauri::command]
 fn message_box(message:String) {
@@ -106,7 +143,16 @@ fn message_box(message:String) {
 fn main() {
 
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![create_workspace,open_dir,open_file,open_workspace, message_box, validate_text])
+    .invoke_handler(tauri::generate_handler![
+      create_workspace,
+      open_dir,
+      open_file,
+      open_workspace,
+      message_box, 
+      validate_text, 
+      write_categories_into_workspace,
+      get_workspace
+      ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
