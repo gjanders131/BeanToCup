@@ -18,37 +18,59 @@ export const workspaceStore = create<WorkspaceProps>()((set) => ({
 }))
 
 type SchemaProps = {
-    dir_categories: string[]
-    asset_categories: string[]
+    dirCategories: string[]
+    assetCategories: string[]
+    dirSubCategories: string[][]
 
-    setDirCategories: (dir_category: string[]) => void
+    setDirCategories: (dir_categories: string[]) => void
     setDirCategory: (dir_category: string, index: number) => void
 
-    setAssetCategories: (asset_category: string[]) => void
+    setDirSubCategories: (dir_sub_categories: string[][]) => void
+    setDirSubCategory: (index: number, dir_sub_categories: string[]) => void
+    removeDirSubCategory: (index: number) => void
+
+    setAssetCategories: (asset_categories: string[]) => void
     setAssetCategory: (dir_category: string, index: number) => void
 }
 
 export const schemaStore = create<SchemaProps>()(
     immer((set) => ({
-        dir_categories: [],
-        asset_categories: [],
+        dirCategories: [],
+        dirSubCategories: [[]],
+        assetCategories: [],
 
-        setDirCategories: (dir_category: string[]) =>
+        // Directory Categories
+        setDirCategories: (dir_categories: string[]) =>
             set((state) => {
-                state.dir_categories = dir_category
+                state.dirCategories = dir_categories
             }),
         setDirCategory: (dir_category: string, index: number) =>
             set((state) => {
-                state.dir_categories[index] = dir_category
+                state.dirCategories[index] = dir_category
             }),
 
-        setAssetCategories: (asset_category: string[]) =>
+        // Directory Sub Categories
+        setDirSubCategories: (dir_sub_categories: string[][]) =>
             set((state) => {
-                state.asset_categories = asset_category
+                state.dirSubCategories = dir_sub_categories
+            }),
+        setDirSubCategory: (index: number, dir_sub_categories: string[]) =>
+            set((state) => {
+                state.dirSubCategories[index] = dir_sub_categories
+            }),
+        removeDirSubCategory: (index: number) =>
+            set((state) => {
+                state.dirSubCategories.splice(index, 1)
+            }),
+
+        // Asset Categories
+        setAssetCategories: (asset_categories: string[]) =>
+            set((state) => {
+                state.assetCategories = asset_categories
             }),
         setAssetCategory: (asset_category: string, index: number) =>
             set((state) => {
-                state.asset_categories[index] = asset_category
+                state.assetCategories[index] = asset_category
             }),
     }))
 )

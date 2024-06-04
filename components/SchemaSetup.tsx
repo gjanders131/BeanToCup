@@ -1,56 +1,40 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import PopUp from './PopUp'
 import { invoke } from '@tauri-apps/api'
 import { schemaStore, workspaceStore } from './Helpers/Store'
-import { v4 as uuidv4 } from 'uuid'
+import InputList from './InputList'
+import { dir } from 'console'
 
 const SchemaSetup = () => {
-    const useSchemaStore = schemaStore((state) => state)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+
     const useWorkspaceStore = workspaceStore((state) => state)
 
-    const [isOpen, setIsOpen] = useState<boolean>(false)
-    const [dirCategoryKeys, setDirCategoryKeys] = useState<string[]>(
-        useSchemaStore.dir_categories.map(() => uuidv4())
-    )
-    const [inputError, setInputError] = useState<string>('')
+    // State variables for Directory and Asset Categories
+    const useSchemaStore = schemaStore((state) => state)
 
-    const handleAddCategory = () => {
-        useSchemaStore.setDirCategories([...useSchemaStore.dir_categories, ''])
-        setDirCategoryKeys([...dirCategoryKeys, uuidv4()])
-    }
+    const dirCategories = useSchemaStore.dirCategories
+    const assetCategories = useSchemaStore.assetCategories
+    const dirSubCategories = useSchemaStore.dirSubCategories
 
-    const handleCategoryChange = (
-        e: React.ChangeEvent<HTMLInputElement>,
-        index: number
-    ) => {
-        invoke('validate_text', { text: e.target.value })
-            .then(() => setInputError(''))
-            .catch((error) => setInputError(error))
-        useSchemaStore.setDirCategories(
-            useSchemaStore.dir_categories.map((category, i) => {
-                if (i === index) {
-                    return e.target.value
-                }
-                return category
-            })
-        )
-    }
-
-    const handleDirCategoryRemoval = (index: number) => () => {
-        useSchemaStore.setDirCategories(
-            useSchemaStore.dir_categories.filter((_, i) => i !== index)
-        )
-        setDirCategoryKeys(dirCategoryKeys.filter((_, i) => i !== index))
-    }
+    const setDirCategories = useSchemaStore.setDirCategories
+    const setAssetCategories = useSchemaStore.setAssetCategories
+    const setDirSubCategory = useSchemaStore.setDirSubCategory
+    const setDirSubCategories = useSchemaStore.setDirSubCategories
+    const removeDirSubCategory = useSchemaStore.removeDirSubCategory
 
     const handleApplyChanges = () => {
-        let categories = JSON.stringify({
-            directory: useSchemaStore.dir_categories,
-            asset: useSchemaStore.asset_categories,
+        let dirSubs: [{ [dir: string]: string[] }] = [{}]
+        dirCategories.map((dir, index) => {
+            dirSubs[index] = { [dir]: dirSubCategories[index] }
         })
-        // console.log(JSON.parse(jsonCats))
+
+        let categories = JSON.stringify({
+            directory: dirSubs,
+            asset: assetCategories,
+        })
         invoke('write_categories_into_workspace', {
             workspace: useWorkspaceStore.path,
             content: categories,
@@ -63,6 +47,7 @@ const SchemaSetup = () => {
             })
     }
 
+    // Open popup and get workspace info
     const handleOpenPopUp = () => {
         setIsOpen(true)
 
@@ -70,21 +55,53 @@ const SchemaSetup = () => {
             workspacePath: useWorkspaceStore.path,
         })
             .then((res) => {
-                console.log(JSON.parse(res).categories.directory)
-                useSchemaStore.setDirCategories(
-                    JSON.parse(res).categories.directory
+                let dirKeys: string[] = []
+                let dirSubs: [string[]] = [[]]
+
+                let dirCats = JSON.parse(res).categories.directory
+                dirCats.map(
+                    (dir: { [dir: string]: string[] }, index: number) => {
+                        for (let key in dir) {
+                            dirKeys.push(key)
+                        }
+                        dirSubs[index] = dir[Object.keys(dir)[0]]
+                    }
                 )
-                useSchemaStore.setAssetCategories(
-                    JSON.parse(res).categories.asset
-                )
+                setDirCategories(dirKeys)
+                setDirSubCategories(dirSubs)
+                setAssetCategories(JSON.parse(res).categories.asset)
             })
             .catch((error) => {
-                useSchemaStore.setDirCategories([''])
-                useSchemaStore.setAssetCategories([''])
+                setDirCategories([''])
+                setAssetCategories([''])
                 console.error(error)
             })
     }
 
+    const refreshSubDirs = useMemo(() => {
+        return (
+            <ul>
+                {dirSubCategories.map((_, index) => (
+                    <li key={index}>
+                        <InputList
+                            array={dirSubCategories[index]}
+                            setArray={(subDirs) =>
+                                setDirSubCategory(index, subDirs)
+                            }
+                        />
+                    </li>
+                ))}
+            </ul>
+        )
+    }, [dirSubCategories, setDirSubCategory])
+
+    useEffect(() => {
+        if (dirCategories.length > dirSubCategories.length) {
+            setDirSubCategory(dirCategories.length - 1, [])
+        }
+    }, [dirCategories, dirSubCategories, setDirSubCategory])
+
+    // TODO: Format lists better
     return (
         <>
             <button onClick={handleOpenPopUp}>Setup Schema</button>
@@ -94,33 +111,21 @@ const SchemaSetup = () => {
             >
                 <div>
                     <div>Setup your folder structure</div>
-                    <button onClick={handleAddCategory}>Add a Category</button>
-                    <ol className='flex flex-col'>
-                        {useSchemaStore.dir_categories.map(
-                            (category, index) => (
-                                <li key={dirCategoryKeys[index]}>
-                                    <input
-                                        className='text-black mt-1 p-1'
-                                        type='text'
-                                        defaultValue={category}
-                                        onChange={(e) => {
-                                            handleCategoryChange(e, index)
-                                        }}
-                                    />
-                                    <button
-                                        onClick={handleDirCategoryRemoval(
-                                            index
-                                        )}
-                                    >
-                                        X
-                                    </button>
-                                </li>
-                            )
-                        )}
-                    </ol>
-                    <div>{inputError}</div>
+                    <div className='flex flex-row justify-between'>
+                        <InputList
+                            array={dirCategories}
+                            setArray={setDirCategories}
+                            removeSubDirCategory={removeDirSubCategory}
+                        ></InputList>
+                        {refreshSubDirs}
+                    </div>
+                    <div>Setup your Asset folder structure</div>
+                    <InputList
+                        array={assetCategories}
+                        setArray={setAssetCategories}
+                    />
                     <div>Folder Structure Preview</div>
-                    <div>{useSchemaStore.dir_categories.join('/')}</div>
+                    <div>{dirCategories.join('/')}</div>
                     <button onClick={handleApplyChanges}>Apply Changes</button>
                 </div>
             </PopUp>

@@ -5,9 +5,17 @@ import ButtonLarge from '@/components/ButtonLarge'
 import { workspaceStore } from '@/components/Helpers/Store'
 import CreateWorkSpace from '@/components/CreateWorkspace'
 import SchemaSetup from '@/components/SchemaSetup'
+import { useState } from 'react'
+
+type TestProps = {
+    key: string
+    value: string[]
+}
 
 export default function Home() {
     const workspace = workspaceStore((state) => state)
+
+    const [testMap, setTestMap] = useState<TestProps[]>()
 
     const handleOpenWorkspace = () => {
         invoke<string>('open_workspace')
@@ -29,6 +37,18 @@ export default function Home() {
                 onClick={() => handleOpenWorkspace()}
             />
             <SchemaSetup />
+            <div>
+                {testMap?.map((item) => (
+                    <div key={item.key}>
+                        <div>{item.key}</div>
+                        <div>
+                            {item.value.map((val) => (
+                                <div key={val}>{val}</div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
         </main>
     )
 }

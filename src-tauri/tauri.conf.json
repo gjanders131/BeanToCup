@@ -68,7 +68,6 @@
                 "titleBarStyle": "Overlay",
                 "fileDropEnabled": true,
                 "fullscreen": false,
-                "alwaysOnTop": true,
                 "x": 2080,
                 "y": 0,
                 "width": 800,

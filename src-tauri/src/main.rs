@@ -5,7 +5,7 @@ use rfd::{FileDialog, MessageDialog, MessageLevel};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::api::{self, dir::read_dir};
-use std::fs;
+use std::{collections::HashMap, fs};
 
 #[tauri::command]
 fn open_dir(base_path:String) -> Result<String, String> {
@@ -107,6 +107,35 @@ fn process_json(json:String) -> Result<Value, serde_json::Error> {
   return Ok(json_string);
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Categories {
+  directory: Vec<HashMap<String, Value>>,
+  asset: Vec<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Workspace {
+  categories: Categories,
+}
+
+#[tauri::command]
+fn print_workspace_json(workspace:String) -> Result<String, String> {
+  let workspace_content = fs::read_to_string(&workspace);
+  match workspace_content {
+    Ok(content) => {
+      let json_content = serde_json::from_str::<Workspace>(&content).expect("Unable to convert content to JSON");
+      let dir_cats = json_content.categories.directory;
+      for cat in dir_cats {
+        println!("{:?}", cat);
+      }
+      // println!("{:?}", iter.map(|dir| dir));
+      return Ok("Success".to_string());
+    },
+    Err(err) => return Err(err.to_string())
+  };
+}
+
 #[tauri::command]
 fn write_categories_into_workspace(workspace:String, content:String) -> Result<String, String> {
 
@@ -131,6 +160,30 @@ fn write_categories_into_workspace(workspace:String, content:String) -> Result<S
   };
 }
 
+#[derive(Hash, Serialize, Deserialize)]
+struct TestStruct {
+  key: String,
+  value: Vec<String>,
+}
+
+impl TestStruct {
+  fn new(key:&str, value:Vec<String>) -> Self {
+    TestStruct {
+      key: key.to_string(),
+      value
+    }
+  }
+}
+
+#[tauri::command]
+fn test_hashmap() -> Result<String, String> {
+  let val = vec!["test1".to_string(), "test2".to_string()];
+  let map = vec![TestStruct::new("Dev", val.clone()), TestStruct::new("Prod", val.clone()), TestStruct::new("QA", val.clone())];
+  let json_string = serde_json::to_string(&map).expect("Unable to convert to JSON");
+  return Ok(json_string);
+  // Err("Error".to_string());
+}
+
 
 #[tauri::command]
 fn message_box(message:String) {
@@ -151,7 +204,9 @@ fn main() {
       message_box, 
       validate_text, 
       write_categories_into_workspace,
-      get_workspace
+      get_workspace,
+      print_workspace_json,
+      test_hashmap
       ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
